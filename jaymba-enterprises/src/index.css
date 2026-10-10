@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body { @apply bg-paper text-ink antialiased; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+.btn { @apply inline-block rounded-lg bg-brand px-4 py-2 text-sm font-bold text-ink transition hover:brightness-95 disabled:opacity-50; }
+.btn-ghost { @apply inline-block rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-ink hover:bg-neutral-100; }
+.input { @apply w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/40; }
+
+/* Glow effects */
+.btn, .btn-ghost, .item-glow { transition: box-shadow .15s, border-color .15s, filter .15s; }
+.btn:hover { box-shadow: 0 0 16px 2px rgba(245, 163, 0, .55); }
+.btn:active { filter: brightness(1.15); }
+.btn-ghost:hover, .item-glow:hover { box-shadow: 0 0 18px rgba(245, 163, 0, .35); border-color: #f5a300; }
+@keyframes zapGlow {
+  0% { box-shadow: 0 0 0 0 rgba(255, 214, 120, 0); }
+  20% { box-shadow: 0 0 22px 6px rgba(255, 214, 120, .95), 0 0 48px 14px rgba(120, 190, 255, .5); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 214, 120, 0); }
+}
+.zapped { animation: zapGlow .55s ease-out; }
+.zap-ring {
+  position: fixed; z-index: 60; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 9999px; pointer-events: none;
+  background: radial-gradient(circle, rgba(255,255,255,.95) 0%, rgba(255,214,120,.7) 35%, rgba(120,190,255,0) 70%);
+  animation: zapRing .55s ease-out forwards;
+}
+@keyframes zapRing { from { transform: scale(1); opacity: 1; } to { transform: scale(9); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .zapped, .zap-ring { animation: none; } }
+
+/* Light theme (the dark theme is the default). Flipped by the 3D switch in the header. */
+html[data-theme="light"] .bg-ink { background-color: #f7f6f2; }
+html[data-theme="light"] .bg-ink\/70 { background-color: rgba(247, 246, 242, .82); }
+html[data-theme="light"] .bg-ink\/80 { background-color: rgba(247, 246, 242, .9); }
+html[data-theme="light"] .bg-ink\/90 { background-color: rgba(247, 246, 242, .95); }
+html[data-theme="light"] .bg-ink\/95 { background-color: rgba(255, 255, 255, .97); }
+html[data-theme="light"] .text-white { color: #1b1f23; }
+html[data-theme="light"] .text-neutral-200 { color: #2b3138; }
+html[data-theme="light"] .text-neutral-300 { color: #3d454d; }
+html[data-theme="light"] .text-neutral-400 { color: #5d6670; }
+html[data-theme="light"] .text-brand { color: #b36b00; }
+html[data-theme="light"] .border-white\/10 { border-color: rgba(0, 0, 0, .12); }
+html[data-theme="light"] .border-white\/20 { border-color: rgba(0, 0, 0, .18); }
+html[data-theme="light"] .ring-white\/20 { --tw-ring-color: rgba(0, 0, 0, .2); }
+body, .bg-ink { transition: background-color .25s; }
