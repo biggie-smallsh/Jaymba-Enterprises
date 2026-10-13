@@ -44,7 +44,7 @@ export default function Layout() {
       {settings.announcement && <div className="bg-brand px-4 py-2 text-center text-sm font-semibold">{settings.announcement}</div>}
       <main className="mx-auto w-full max-w-5xl flex-1 px-4"><Outlet context={{ settings }} /></main>
       <footer className="mt-10 border-t border-white/10 bg-ink/80 py-5 text-center text-sm text-neutral-300">
-        © {new Date().getFullYear()} Jaymba Enterprises. <Link to="/login" className="ml-2 underline opacity-70">Admin</Link>
+        © {new Date().getFullYear()} Jaymba Enterprises. 
       </footer>
     </div>
   );
