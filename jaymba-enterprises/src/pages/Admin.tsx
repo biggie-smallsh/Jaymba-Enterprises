@@ -5,7 +5,7 @@ import { BUCKET, supabase } from "../lib/supabase";
 import { CATEGORIES, DEFAULT_SETTINGS, Product, Settings, kes } from "../lib/types";
 
 interface Form { id?: string; name: string; category: string; price: string; description: string; in_stock: boolean; image_url: string | null }
-interface Order { id: string; receipt_no: string; customer_name: string; phone: string; items: { name: string; qty: number }[]; total: number; mpesa_code: string; status: string; created_at: string }
+interface Order { id: string; receipt_no: string; customer_name: string; phone: string; items: { name: string; qty: number }[]; total: number; mpesa_code: string; status: string; created_at: string; delivery_method?: string; delivery_address?: string; notes?: string }
 const EMPTY: Form = { name: "", category: CATEGORIES[0], price: "", description: "", in_stock: true, image_url: null };
 
 export default function Admin() {
@@ -28,6 +28,13 @@ export default function Admin() {
 
   useEffect(() => { if (ready && !session) nav("/login"); }, [ready, session, nav]);
   useEffect(() => { if (session) load(); }, [session]);
+  useEffect(() => { // live alert when a new order arrives while this page is open
+    if (!session) return;
+    const ch = supabase.channel("orders-admin")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "orders" }, () => { load(); note("New order received! Check the Orders list."); })
+      .subscribe();
+    return () => { void supabase.removeChannel(ch); };
+  }, [session]);
 
   async function load() {
     const [p, s] = await Promise.all([
@@ -79,10 +86,14 @@ export default function Admin() {
     note(error ? "Could not save: " + error.message : "Shop details saved.");
   }
 
-  async function toggleOrder(o: Order) {
-    const { error } = await supabase.from("orders").update({ status: o.status === "pending" ? "confirmed" : "pending" }).eq("id", o.id);
+  async function setOrderStatus(o: Order, status: string) {
+    const { error } = await supabase.from("orders").update({ status }).eq("id", o.id);
     if (error) note(error.message); else load();
   }
+
+  const intl = (p: string) => { const d = p.replace(/\D/g, ""); return d.startsWith("0") ? "254" + d.slice(1) : d; };
+  const receiptLink = (o: Order) =>
+    `https://wa.me/${intl(o.phone)}?text=${encodeURIComponent(`Hello ${o.customer_name}, your order ${o.receipt_no} (${kes(o.total)}) has been approved. Thank you! Download your receipt here: ${window.location.origin}/order?no=${encodeURIComponent(o.receipt_no)}&phone=${encodeURIComponent(o.phone)}`)}`;
 
   async function logout() { await supabase.auth.signOut(); nav("/login"); }
 
@@ -140,8 +151,8 @@ export default function Admin() {
       </section>
 
       <section className="mb-6 rounded-xl border border-neutral-200 bg-white p-4">
-        <h2 className="mb-1 font-bold">Orders ({orders.length})</h2>
-        <p className="mb-3 text-xs text-neutral-500">Check each M-Pesa code against your M-Pesa statement, then mark the order as confirmed.</p>
+        <h2 className="mb-1 font-bold">Orders ({orders.length}) · {orders.filter((o) => o.status === "pending").length} pending approval</h2>
+        <p className="mb-3 text-xs text-neutral-500">Check each M-Pesa code against your M-Pesa messages or statement, then Approve. The customer can then download their receipt, or you can send them the link with the receipt button.</p>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead><tr className="border-b"><th className="p-2">Receipt</th><th className="p-2">Customer</th><th className="p-2">Items</th><th className="p-2">Total</th><th className="p-2">M-Pesa code</th><th className="p-2">Status</th></tr></thead>
@@ -150,10 +161,27 @@ export default function Admin() {
                 <tr key={o.id} className="border-b align-top last:border-0">
                   <td className="p-2 whitespace-nowrap">{o.receipt_no}<div className="text-xs text-neutral-500">{new Date(o.created_at).toLocaleString()}</div></td>
                   <td className="p-2 whitespace-nowrap">{o.customer_name}<div className="text-xs text-neutral-500">{o.phone}</div></td>
-                  <td className="p-2">{o.items.map((i) => `${i.qty}× ${i.name}`).join(", ")}</td>
+                  <td className="p-2">
+                    {o.items.map((i) => `${i.qty}× ${i.name}`).join(", ")}
+                    <div className="mt-1 text-xs font-semibold text-neutral-700">{o.delivery_method === "send" ? `🚚 Send to: ${o.delivery_address || "(no address)"} (customer pays shipping)` : "🏬 Collect from shop"}</div>
+                    {o.notes && <div className="text-xs text-neutral-600">📝 {o.notes}</div>}
+                  </td>
                   <td className="p-2 whitespace-nowrap">{kes(o.total)}</td>
                   <td className="p-2 font-mono">{o.mpesa_code}</td>
-                  <td className="p-2"><button className="btn-ghost" onClick={() => toggleOrder(o)}>{o.status === "pending" ? "Pending" : "Confirmed ✓"}</button></td>
+                  <td className="space-x-1 whitespace-nowrap p-2">
+                    {o.status === "pending" ? (
+                      <>
+                        <button className="btn" onClick={() => setOrderStatus(o, "confirmed")}>Approve</button>
+                        <button className="btn-ghost" onClick={() => setOrderStatus(o, "rejected")}>Reject</button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="mr-1 font-bold">{o.status === "confirmed" ? "Approved ✓" : "Rejected ✕"}</span>
+                        {o.status === "confirmed" && <a className="btn" href={receiptLink(o)} target="_blank" rel="noopener noreferrer">📲 Send receipt</a>}
+                        <button className="btn-ghost" onClick={() => setOrderStatus(o, "pending")}>Undo</button>
+                      </>
+                    )}
+                  </td>
                 </tr>
               ))}
               {orders.length === 0 && <tr><td className="p-4 text-neutral-500" colSpan={6}>No orders yet.</td></tr>}

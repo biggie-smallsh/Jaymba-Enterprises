@@ -3,7 +3,7 @@ import { jsPDF } from "jspdf";
 export interface ReceiptData {
   receiptNo: string; date: string; name: string; phone: string; mpesaCode: string;
   items: { name: string; qty: number; price: number }[];
-  total: number; location: string; shopPhone: string;
+  total: number; location: string; shopPhone: string; confirmed?: boolean; deliveryText?: string; shipping?: boolean;
 }
 
 export function makeReceiptNo() {
@@ -27,10 +27,13 @@ export function downloadReceipt(r: ReceiptData) {
   let y = 35;
   const line = (k: string, v: string) => {
     doc.setFont("helvetica", "bold"); doc.text(k, 10, y);
-    doc.setFont("helvetica", "normal"); doc.text(v, 48, y); y += 6;
+    doc.setFont("helvetica", "normal");
+    const parts = doc.splitTextToSize(v, W - 58) as string[];
+    doc.text(parts, 48, y); y += parts.length * 5 + 1;
   };
   line("Receipt no:", r.receiptNo); line("Date:", r.date); line("Customer:", r.name);
   line("Phone:", r.phone); line("M-Pesa code:", r.mpesaCode);
+  if (r.deliveryText) line("Delivery:", r.deliveryText);
 
   y += 3;
   doc.setFillColor(245, 163, 0); doc.rect(10, y - 4.5, W - 20, 7, "F");
@@ -51,8 +54,10 @@ export function downloadReceipt(r: ReceiptData) {
 
   y += 12; doc.setFontSize(8); doc.setFont("helvetica", "normal"); doc.setTextColor(90, 90, 90);
   const notes = [
-    "Payment status: M-Pesa code submitted. The shop confirms it against its statement.",
-    `Collect from: ${r.location}`,
+    r.confirmed ? "Payment confirmed by Jaymba Enterprises." : "Payment status: M-Pesa code submitted. The shop confirms it against its statement.",
+    ...(r.shipping
+      ? ["Shipping fee is paid by the customer. Jaymba Enterprises does not offer transport at the moment. Items are sent after payment is approved."]
+      : [`Collect from: ${r.location}`]),
     `Questions? WhatsApp +${r.shopPhone.replace(/\D/g, "")}`,
     "Thank you for shopping with Jaymba Enterprises.",
   ];

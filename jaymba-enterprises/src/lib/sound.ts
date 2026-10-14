@@ -5,8 +5,8 @@ let noiseBuf: AudioBuffer | null = null;
 let unlocked = false;
 let enabled = true;   // click sounds and the guide's voice
 let musicOn = true;   // background music
-const FX_VOL = 1.8;     // loudness of click sounds (raise for louder, lower for softer)
-const MUSIC_VOL = 0.75; // loudness of the background music
+const FX_VOL = 1.2;     // loudness of click sounds (raise for louder, lower for softer)
+const MUSIC_VOL = 0.5; // loudness of the background music
 try {
   enabled = localStorage.getItem("jaymba-sound") !== "off";
   musicOn = localStorage.getItem("jaymba-music") !== "off";
@@ -106,7 +106,7 @@ export function crackle() { /* silent */ }
 // If you put a music file at public/music/background.mp3 the site plays it (looping, softly).
 // If that file is missing, it plays a gentle tune made by code instead.
 const MUSIC_FILE = "/music/background.mp3";
-const FILE_VOL = 0.4;
+const FILE_VOL = 0.3;
 let fileAudio: HTMLAudioElement | null = null;
 let fileFailed = false;
 

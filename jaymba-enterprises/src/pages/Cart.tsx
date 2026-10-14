@@ -12,40 +12,59 @@ export default function Cart() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
+  const [method, setMethod] = useState<"collect" | "send">("collect");
+  const [dest, setDest] = useState("");
+  const [who, setWho] = useState<"me" | "other">("me");
+  const [rName, setRName] = useState("");
+  const [rPhone, setRPhone] = useState("");
+  const [notes, setNotes] = useState("");
+  const [agree, setAgree] = useState(false);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
+
+  // Delivery text saved with the order, shown to you in the admin area and on the receipt
+  const sendTo = () => `${dest.trim()} | Receiver: ${who === "me" ? `${name.trim()} (${phone.trim()})` : `${rName.trim()} (${rPhone.trim()})`}`;
 
   async function confirm() {
     const c = code.trim().toUpperCase();
     if (!name.trim() || digits(phone).length < 9) return setErr("Enter your name and phone number.");
     if (!/^[A-Z0-9]{10}$/.test(c)) return setErr("Enter the 10-character M-Pesa confirmation code from your payment message.");
+    if (method === "send") {
+      if (dest.trim().length < 3) return setErr("Enter where we should send your items.");
+      if (who === "other" && (!rName.trim() || digits(rPhone).length < 9)) return setErr("Enter the name and phone number of the person who will receive the items.");
+      if (!agree) return setErr("Please tick the box to confirm that you will pay the shipping fee.");
+    }
     setBusy(true); setErr("");
     const r: ReceiptData = {
       receiptNo: makeReceiptNo(), date: new Date().toLocaleString(), name: name.trim(), phone: phone.trim(), mpesaCode: c,
       items: items.map((i) => ({ name: i.name, qty: i.qty, price: i.price })),
       total, location: settings.location, shopPhone: settings.phone,
+      deliveryText: method === "send" ? sendTo() : "Collect from the shop", shipping: method === "send",
     };
     if (configured) {
-      const { error } = await supabase.from("orders").insert({ receipt_no: r.receiptNo, customer_name: r.name, phone: r.phone, items: r.items, total: r.total, mpesa_code: r.mpesaCode });
+      const { error } = await supabase.from("orders").insert({ receipt_no: r.receiptNo, customer_name: r.name, phone: r.phone, items: r.items, total: r.total, mpesa_code: r.mpesaCode, delivery_method: method, delivery_address: method === "send" ? sendTo() : "", notes: notes.trim() });
       if (error) { setBusy(false); return setErr("Could not place your order: " + error.message); }
     }
-    setBusy(false); setReceipt(r); clear(); downloadReceipt(r);
+    setBusy(false); setReceipt(r); clear(); // receipt is released after the shop approves the order
   }
 
   if (receipt) {
-    const msg = encodeURIComponent(`Hello Jaymba Enterprises, I have paid ${kes(receipt.total)} (M-Pesa code ${receipt.mpesaCode}). Receipt ${receipt.receiptNo}. Name: ${receipt.name}.`);
+    const msg = encodeURIComponent(`Hello Jaymba Enterprises, I have placed order ${receipt.receiptNo} for ${kes(receipt.total)} (M-Pesa code ${receipt.mpesaCode}). Name: ${receipt.name}.`);
     return (
       <div className="mx-auto max-w-lg py-10 text-center">
         <div className="rounded-xl border border-neutral-200 bg-white p-6">
-          <div className="text-5xl">✅</div>
+          <div className="text-5xl">⏳</div>
           <h1 className="mt-2 text-2xl font-extrabold">Thank you, {receipt.name}!</h1>
-          <p className="mt-1 text-sm text-neutral-600">Your order <b>{receipt.receiptNo}</b> for <b>{kes(receipt.total)}</b> has been received. We'll confirm your M-Pesa payment shortly.</p>
+          <p className="mt-1 text-sm text-neutral-600">Your order <b>{receipt.receiptNo}</b> for <b>{kes(receipt.total)}</b> is <b>pending approval</b>. We will check your M-Pesa payment and approve it shortly.</p>
+          {receipt.shipping && <p className="mt-2 text-sm text-neutral-600">After your payment is approved we will send your items to: <b>{receipt.deliveryText}</b>. You pay the shipping fee, because we do not offer transport at the moment.</p>}
+          <p className="mt-2 text-sm text-neutral-600">Once it is approved, open <b>Track my order</b> to download your receipt. Please save your order number.</p>
           <div className="mt-4 flex flex-wrap justify-center gap-2">
-            <button className="btn" onClick={() => downloadReceipt(receipt)}>⬇ Download receipt again</button>
+            <Link to={`/order?no=${encodeURIComponent(receipt.receiptNo)}&phone=${encodeURIComponent(receipt.phone)}`} className="btn">📦 Track my order</Link>
             <a className="btn-ghost" target="_blank" rel="noopener noreferrer" href={`https://wa.me/${digits(settings.phone)}?text=${msg}`}>Tell us on WhatsApp</a>
             <Link to="/products" className="btn-ghost">Keep shopping</Link>
           </div>
+          {!configured && <button className="btn-ghost mt-3" onClick={() => downloadReceipt(receipt)}>Demo mode: download a sample receipt</button>}
         </div>
       </div>
     );
@@ -57,13 +76,15 @@ export default function Cart() {
         <div className="text-5xl">🛒</div>
         <h1 className="mt-2 text-2xl font-bold">Your cart is empty</h1>
         <Link to="/products" className="btn mt-4">Browse products</Link>
+        <div className="mt-3"><Link to="/order" className="underline">Track an order</Link></div>
       </div>
     );
   }
 
   return (
     <div className="py-8">
-      <h1 className="mb-4 text-3xl font-extrabold text-white">Your cart</h1>
+      <h1 className="mb-1 text-3xl font-extrabold text-white">Your cart</h1>
+      <p className="mb-4 text-sm"><Link to="/order" className="text-brand underline">Already ordered? Track your order</Link></p>
       <div className="grid gap-6 md:grid-cols-5">
         <div className="space-y-3 md:col-span-3">
           {items.map((i) => (
@@ -99,6 +120,39 @@ export default function Cart() {
             <input className="input" placeholder="Phone number (07...)" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
             <input className="input uppercase" placeholder="M-Pesa code e.g. QJK3L9ABCD" maxLength={10} value={code} onChange={(e) => setCode(e.target.value)} />
           </div>
+
+          <div className="mt-3 rounded-lg bg-paper p-3 text-sm">
+            <div className="mb-1 font-bold">How do you want to get your items?</div>
+            <label className="flex items-start gap-2 py-0.5">
+              <input type="radio" name="method" className="mt-1" checked={method === "collect"} onChange={() => setMethod("collect")} />
+              <span>I will collect from the shop</span>
+            </label>
+            <label className="flex items-start gap-2 py-0.5">
+              <input type="radio" name="method" className="mt-1" checked={method === "send"} onChange={() => setMethod("send")} />
+              <span>Send my items to me</span>
+            </label>
+            {method === "send" && (
+              <div className="mt-2 space-y-2">
+                <div className="text-xs font-semibold">Send to (destination)</div>
+                <input className="input" placeholder="Town or area, and the bus or courier office" value={dest} onChange={(e) => setDest(e.target.value)} />
+                <div className="text-xs font-semibold">Who will receive the items?</div>
+                <label className="flex items-center gap-2 text-sm"><input type="radio" name="who" checked={who === "me"} onChange={() => setWho("me")} /> Me</label>
+                <label className="flex items-center gap-2 text-sm"><input type="radio" name="who" checked={who === "other"} onChange={() => setWho("other")} /> Another person</label>
+                {who === "other" && (
+                  <div className="space-y-2">
+                    <input className="input" placeholder="Receiver's full name" value={rName} onChange={(e) => setRName(e.target.value)} />
+                    <input className="input" placeholder="Receiver's phone number" inputMode="tel" value={rPhone} onChange={(e) => setRPhone(e.target.value)} />
+                  </div>
+                )}
+                <label className="flex items-start gap-2 text-xs">
+                  <input type="checkbox" className="mt-0.5" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
+                  <span>I understand that Jaymba Enterprises does not offer transport at the moment, and that I will pay the shipping fee myself.</span>
+                </label>
+              </div>
+            )}
+            <p className="mt-2 rounded bg-yellow-100 p-2 text-xs">🚚 We do not offer transport at the moment. If you want your items sent, the shipping fee is paid by you. Your items are sent only after your payment is approved.</p>
+          </div>
+          <textarea className="input mt-2" rows={2} placeholder="Anything else we should know? (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} />
           {err && <p className="mt-2 text-sm text-red-700">{err}</p>}
           {!configured && <p className="mt-2 rounded bg-yellow-100 p-2 text-xs">Demo mode: Supabase isn't connected, so the order won't be saved.</p>}
           <button className="btn mt-3 w-full" onClick={confirm} disabled={busy}>{busy ? "Placing order..." : "I've paid: confirm order"}</button>
