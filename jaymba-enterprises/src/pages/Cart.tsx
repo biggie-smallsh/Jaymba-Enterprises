@@ -44,7 +44,12 @@ export default function Cart() {
     };
     if (configured) {
       const { error } = await supabase.from("orders").insert({ receipt_no: r.receiptNo, customer_name: r.name, phone: r.phone, items: r.items, total: r.total, mpesa_code: r.mpesaCode, delivery_method: method, delivery_address: method === "send" ? sendTo() : "", notes: notes.trim() });
-      if (error) { setBusy(false); return setErr("Could not place your order: " + error.message); }
+      if (error) {
+        setBusy(false);
+        if (error.code === "23505") return setErr("This M-Pesa code has already been used for another order. Please check the code, or contact us on WhatsApp.");
+        if (error.code === "23514") return setErr("Please check your details and try again.");
+        return setErr("Could not place your order: " + error.message);
+      }
     }
     setBusy(false); setReceipt(r); clear(); // receipt is released after the shop approves the order
   }
