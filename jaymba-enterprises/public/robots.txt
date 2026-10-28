@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /login
+
+# After you deploy, replace YOUR-SITE.pages.dev with your real web address
+Sitemap: https://YOUR-SITE.pages.dev/sitemap.xml

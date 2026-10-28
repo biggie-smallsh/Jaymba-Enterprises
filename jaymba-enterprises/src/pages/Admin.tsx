@@ -21,7 +21,13 @@ export default function Admin() {
   const [orders, setOrders] = useState<Order[]>([]);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => { setSession(data.session); setReady(true); });
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (data.session) {
+        const { data: a } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+        if (!a || a.currentLevel !== "aal2") { nav("/login"); return; } // the 6-digit code is required
+      }
+      setSession(data.session); setReady(true);
+    });
     const { data } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
     return () => data.subscription.unsubscribe();
   }, []);
