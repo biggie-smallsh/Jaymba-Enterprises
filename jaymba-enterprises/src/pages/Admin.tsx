@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { Session } from "@supabase/supabase-js";
 import { BUCKET, supabase } from "../lib/supabase";
+import QrCard from "../components/QrCard";
 import { CATEGORIES, DEFAULT_SETTINGS, Product, Settings, kes } from "../lib/types";
 
 interface Form { id?: string; name: string; category: string; price: string; description: string; in_stock: boolean; image_url: string | null }
@@ -195,6 +196,8 @@ export default function Admin() {
           </table>
         </div>
       </section>
+
+      <QrCard />
 
       <section className="rounded-xl border border-neutral-200 bg-white p-4">
         <h2 className="mb-3 font-bold">Shop details and announcement</h2>
